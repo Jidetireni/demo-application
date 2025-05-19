@@ -65,6 +65,6 @@ COPY --from=build-production /app/api-golang api-golang
 USER nonroot
 
 # Indicate expected port
-EXPOSE 8080
+EXPOSE 8000
 
 CMD ["/api-golang"]
