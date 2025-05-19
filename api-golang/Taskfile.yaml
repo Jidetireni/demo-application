@@ -1,33 +1,48 @@
-version: "3"
+version: '3'
 
 vars:
-  DATABASE_URL: "postgres://postgres:foobarbaz@localhost:5432/postgres"
-  IMAGE_REPO: sidpalas/devops-directive-docker-course-api-golang
-  IMAGE_TAG: foobarbaz
+  REPO: tireni/demoapp-golangapi
+  NAME: demoapp-golangapi
+  TAG: v1.0.0
+  PORT: 8000
+  # DATABASE_URL: 
 
 tasks:
-  install:
-    desc: "download dependencies"
+  build-image:
+    desc: Build the Docker image
     cmds:
-      - go mod tidy
+      - docker build -t {{.REPO}}:{{.TAG}} .
 
   run:
-    desc: "download dependencies"
-    cmds:
-      - echo $PWD
-      - ls
-      - DATABASE_URL={{.DATABASE_URL}} go run main.go
-
-  build-container-image:
-    desc: Build container image
+    desc: Run the Docker container
     cmds:
       - |
-        KO_DOCKER_REPO='{{.IMAGE_REPO}}' \
-          ko build \
-          --bare \
-          --tags={{.IMAGE_TAG}} \
-          --platform=all
+        docker run -d \
+          -p {{.PORT}}:{{.PORT}} \
+          --name {{.NAME}} \
+          -e DATABASE_URL="{{.DATABASE_URL}}" \
+          --network demoapp-network \
+          {{.REPO}}:{{.TAG}}
 
-  build-container-image-multi-arch:
+  push:
+    desc: Push the Docker image to registry
     cmds:
-      - task: build-container-image
+      - docker push {{.REPO}}:{{.TAG}}
+
+  stop:
+    desc: Stop and remove the Docker container
+    cmds:
+      - docker stop {{.NAME}} || true
+      - docker rm {{.NAME}} || true
+
+  logs:
+    desc: container logs
+    cmds: 
+      - docker logs {{.NAME}} 
+
+  rebuild:
+    desc: Stop, remove, rebuild, and run container
+    deps: [stop]
+    cmds:
+      - task: build-image
+      - task: run

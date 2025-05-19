@@ -1,31 +1,47 @@
-version: "3"
+version: '3'
 
 vars:
-  IMAGE_REPO: sidpalas/devops-directive-docker-course-client-react-nginx
-  IMAGE_TAG: foobarbaz
+  REPO: tireni/demoapp-fe
+  NAME: demoapp-fe
+  TAG: v1.0.0
+  PORT: 8080
 
 tasks:
-  build-container-image:
-    desc: Build container image
+  build-image:
+    desc: Build the Docker image
     cmds:
-      - docker build -t {{.IMAGE_REPO}}:{{.IMAGE_TAG}} .
-
-  build-container-image-multi-arch:
-    desc: Build multi-arch container image
-    cmds:
-      - |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        -t {{.IMAGE_REPO}}:{{.IMAGE_TAG}} \
-        --push \
-        .
-
-  install:
-    desc: install dependencies
-    cmds:
-      - npm install
+      - docker build -t {{.REPO}}:{{.TAG}} .
 
   run:
-    desc: Start react client
+    desc: Run the Docker container
     cmds:
-      - npm run dev
+      # - docker run -d -p {{.PORT}}:{{.PORT}} --name {{.NAME}} {{.REPO}}:{{.TAG}}
+      - |
+        docker run -d \
+          -p {{.PORT}}:{{.PORT}} \
+          --name {{.NAME}} \
+          --network demoapp-network \
+          {{.REPO}}:{{.TAG}}
+
+  push:
+    desc: Push the Docker image to registry
+    cmds:
+      - docker push {{.REPO}}:{{.TAG}}
+
+  stop:
+    desc: Stop and remove the Docker container
+    cmds:
+      - docker stop {{.NAME}} || true
+      - docker rm {{.NAME}} || true
+
+  logs:
+    desc: container logs
+    cmds: 
+      - docker logs {{.NAME}} 
+
+  rebuild:
+    desc: Stop, remove, rebuild, and run container
+    deps: [stop]
+    cmds:
+      - task: build-image
+      - task: run

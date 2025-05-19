@@ -1,35 +1,47 @@
 version: "3"
 
 vars:
-  IMAGE_REPO: sidpalas/devops-directive-kubernetes-course-db-migrator
-  IMAGE_TAG: foobarbaz
-
+  IMAGE_REPO: tireni/demoapp-db-migrate
+  IMAGE_TAG: v1.0.0
+  DB_CONTAINER_NAME: 
+  DB_NETWORK: 
+  POSTGRES_USER: 
+  POSTGRES_PASSWORD: 
+  POSTGRES_DB_NAME: 
+  DB_VOLUME: 
+  
 tasks:
   run-postgres:
     desc: Start postgres container
     cmds:
       - echo Starting postgres container
-      - docker run -e POSTGRES_PASSWORD=foobarbaz -v pgdata:/var/lib/postgresql/data -p 5432:5432 postgres:16.3-alpine
+      - docker network inspect {{.DB_NETWORK}} >/dev/null 2>&1 || docker network create {{.DB_NETWORK}}
+
+      - |
+        docker run -d \
+          --name {{.DB_CONTAINER_NAME}} \
+          --network {{.DB_NETWORK}} \
+          --network-alias db \
+          -e POSTGRES_USER={{.POSTGRES_USER}} \
+          -e POSTGRES_PASSWORD={{.POSTGRES_PASSWORD}} \
+          -e POSTGRES_DB={{.POSTGRES_DB_NAME}} \
+          -v pgdata:/var/lib/postgresql/data \
+          -p 5432:5432 \
+          postgres:16.3-alpine
 
   run-psql-init-script:
     desc: Execute psql commands
     cmds:
       - |
-        CONTAINER_ID=$(docker ps -q --filter "ancestor=postgres:16.3-alpine")
+        CONTAINER_ID=$(docker ps -q --filter name={{.DB_CONTAINER_NAME}})
+        if [ -z "$CONTAINER_ID" ]; then
+          echo "Error: Container {{.DB_CONTAINER_NAME}} not found."
+          exit 1
+        fi
         docker cp ./migrations/000001_create_users_table.up.sql $CONTAINER_ID:/tmp/
-        docker exec $CONTAINER_ID psql -U "postgres" -f /tmp/000001_create_users_table.up.sql
+        docker exec $CONTAINER_ID psql -U "{{.POSTGRES_USER}}" -d "{{.POSTGRES_DB_NAME}}" -f /tmp/000001_create_users_table.up.sql
 
   build-container-image:
     desc: Build container image
     cmds:
       - docker build -t {{.IMAGE_REPO}}{{.IMAGE_TAG}} .
-
-  build-container-image-multi-arch:
-    desc: Build multi-arch container image
-    cmds:
-      - |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        -t {{.IMAGE_REPO}}:{{.IMAGE_TAG}} \
-        --push \
-        .

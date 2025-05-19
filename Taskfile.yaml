@@ -1,34 +1,72 @@
-version: "3"
-
-includes:
-  api-golang:
-    taskfile: ./api-golang/Taskfile.yaml
-    dir: ./api-golang
-  api-node:
-    taskfile: ./api-node/Taskfile.yaml
-    dir: ./api-node
-  client-react:
-    taskfile: ./client-react/Taskfile.yaml
-    dir: ./client-react
-  load-generator-python:
-    taskfile: ./load-generator-python/Taskfile.yaml
-    dir: ./load-generator-python
-  postgresql:
-    taskfile: ./postgresql/Taskfile.yaml
-    dir: ./postgresql
-
-vars:
-  DATABASE_URL: "postgres://postgres:foobarbaz@localhost:5432/postgres"
+version: '3'
 
 tasks:
-  bootstrap-buildx-builder:
-    desc: Bootstrap the builder
+  start:
+    desc: Start all services with Docker Compose in detached mode and build images if necessary.
     cmds:
-      - docker buildx create --name mybuilder --driver docker-container --driver-opt network=host --use
-      - docker buildx inspect mybuilder --bootstrap
-      - docker buildx use mybuilder
+      - docker compose up --build -d
+    aliases:
+      - up
 
-  run-local-registry:
-    desc: Run a local registry
+  stop:
+    desc: Stop and remove all services defined in Docker Compose.
     cmds:
-      - docker run -d -p 5000:5000 registry:2.8
+      - docker compose down
+    aliases:
+      - down
+
+  logs:
+    desc: Follow logs from all services.
+    cmds:
+      - docker compose logs -f
+
+  # logs-service:
+  #   desc: Follow logs for a specific service. Usage task logs-service SERVICE_NAME=api-node
+  #   cmds:
+  #     - docker compose logs -f {{.SERVICE_NAME}}
+  #   vars:
+  #     SERVICE_NAME:
+  #       sh: read -p "Enter service name to view logs (e.g., api-node, db, client-react, api-golang): " val && echo $val
+
+  restart:
+    desc: Stop, remove, and then restart all services, rebuilding images.
+    cmds:
+      - task: stop
+      - task: start
+
+  ps:
+    desc: List running containers for this compose project.
+    cmds:
+      - docker compose ps
+
+  build:
+    desc: Build or rebuild services.
+    cmds:
+      - docker compose build
+
+  rebuild-start:
+    desc: Rebuild images and then start services.
+    cmds:
+      - docker compose build
+      - docker compose up -d
+
+  # Individual service tasks (optional, but can be handy)
+  start-db:
+    desc: Start only the database service.
+    cmds:
+      - docker compose up -d --no-deps db
+
+  start-api-node:
+    desc: Start only the api-node service and its dependencies.
+    cmds:
+      - docker compose up -d --build api-node
+
+  start-api-golang:
+    desc: Start only the api-golang service and its dependencies.
+    cmds:
+      - docker compose up -d --build api-golang
+
+  start-client-react:
+    desc: Start only the client-react service and its dependencies.
+    cmds:
+      - docker compose up -d --build client-react

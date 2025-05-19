@@ -1,24 +1,33 @@
 version: "3"
 
 vars:
-  IMAGE_REPO: sidpalas/devops-directive-kubernetes-course-load-generator-python
-  IMAGE_TAG: foobarbaz
+  REPO: tireni/demoapp-loadgen
+  TAG: v1.0.0
+  NAME: demoapp-loadgen
+  # API_URL: http://api-golang:8000
+
 
 tasks:
-  build-container-image:
-    desc: Build container image
-    cmds:
-      - docker build -t {{.IMAGE_REPO}}:{{.IMAGE_TAG}} .
-
-  build-container-image-multi-arch:
-    desc: Build multi-arch container image
+  run:
+    desc: Run the Docker container
     cmds:
       - |
-        docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        -t {{.IMAGE_REPO}}:{{.IMAGE_TAG}} \
-        --push \
-        .
+        docker run -d \
+          --name {{.NAME}} \
+          -e API_URL="{{.API_URL}}" \
+          --network demoapp-network \
+          {{.REPO}}:{{.TAG}}
+
+  push:
+    desc: Push the Docker image to registry
+    cmds:
+      - docker push {{.REPO}}:{{.TAG}}
+
+  stop:
+    desc: Stop and remove the Docker container
+    cmds:
+      - docker stop {{.NAME}} || true
+      - docker rm {{.NAME}} || true
 
   install:
     desc: Install load generator dependencies
